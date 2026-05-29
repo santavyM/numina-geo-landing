@@ -1,310 +1,317 @@
 {
-  "name": "NUMINA GEO AI Agent",
-  "nodes": [
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "geo-agent",
-        "responseMode": "responseNode",
-        "options": {
-          "allowedOrigins": "*"
-        }
-      },
-      "id": "webhook-node",
-      "name": "Webhook (zpráva z webu)",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        -640,
-        300
-      ],
-      "webhookId": "geo-agent-webhook"
-    },
-    {
-      "parameters": {
-        "operation": "lookup",
-        "documentId": {
-          "__rl": true,
-          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Konverzace",
-          "mode": "name"
-        },
-        "lookupColumn": "conversationId",
-        "lookupValue": "={{ $json.body.conversationId }}",
-        "options": {
-          "returnAllMatches": true
-        }
-      },
-      "id": "sheets-read",
-      "name": "Načti historii vlákna",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        -420,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Sestavíme historii konverzace do textu pro AI\nconst incoming = $('Webhook (zpráva z webu)').first().json.body;\nconst conversationId = incoming.conversationId;\nconst name = incoming.name || 'Neznámý';\nconst email = incoming.email || '';\nconst userMessage = incoming.message || '';\n\n// Všechny předchozí řádky z Google Sheets pro tuto konverzaci\nconst rows = $input.all().map(i => i.json).filter(r => r.conversationId === conversationId);\n\nlet history = '';\nfor (const r of rows) {\n  if (r.role && r.text) {\n    history += (r.role === 'user' ? 'Uživatel: ' : 'Asistent: ') + r.text + '\\n';\n  }\n}\n\nreturn [{\n  json: {\n    conversationId,\n    name,\n    email,\n    userMessage,\n    history: history.trim(),\n    isFirstMessage: rows.length === 0\n  }\n}];"
-      },
-      "id": "build-context",
-      "name": "Sestav kontext",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -200,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Konverzace",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "conversationId": "={{ $json.conversationId }}",
-            "role": "user",
-            "text": "={{ $json.userMessage }}",
-            "name": "={{ $json.name }}",
-            "email": "={{ $json.email }}",
-            "timestamp": "={{ $now.toISO() }}"
-          }
-        },
-        "options": {}
-      },
-      "id": "sheets-save-user",
-      "name": "Ulož zprávu uživatele",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        20,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "modelId": {
-          "__rl": true,
-          "value": "models/gemini-2.0-flash",
-          "mode": "list"
-        },
-        "messages": {
-          "values": [
-            {
-              "content": "=Jsi přátelský a profesionální AI asistent marketingové agentury NUMINA, která nabízí službu GEO (Generative Engine Optimization) — optimalizaci značek pro to, aby je doporučovaly AI vyhledávače jako ChatGPT, Perplexity, Gemini, Google AI Overviews, Claude a Copilot.\n\nZDROJ PRAVDY O NUMINA:\n- NUMINA pomáhá značkám být viditelné v odpovědích AI vyhledávačů.\n- Služba je určená pro B2B SaaS, e-commerce, služby, lokální lídry a značky, jejichž zákazníci se ptají AI dřív než klasického vyhledávače.\n- GEO Audit stojí 39 000 Kč jednorázově. Obsahuje kompletní audit napříč 6 enginy, analýzu viditelnosti a podílu hlasu, konkurenční srovnání a akční plán s prioritami.\n- GEO Růst stojí 59 000 Kč měsíčně bez dlouhodobého závazku. Obsahuje vše z auditu, průběžnou optimalizaci obsahu, tvorbu entitního a citovatelného obsahu, technickou implementaci, měsíční reporting a prioritní podporu.\n- První pohyb ve viditelnosti lze typicky očekávat do 14 dní. Stabilní růst se buduje v horizontu 2–3 měsíců.\n- Kontakt: projekty@numina.cz, +420 737 499 315.\n\nTVŮJ ÚKOL:\n- Odpovídej česky, vstřícně, lidsky a stručně (2–4 věty).\n- Reaguj konkrétně na to, co uživatel napsal — neopakuj obecné fráze.\n- Cílem je kvalifikovat zájemce: zjisti, co potřebuje, a nasměruj ho k auditu nebo konzultaci.\n- Nikdy neuváděj jiné ceny než 39 000 Kč za GEO Audit a 59 000 Kč/měsíc za GEO Růst.\n- Nikdy si nevymýšlej konkrétní termíny, jména lidí z týmu ani sliby, které neznáš.\n- Pokud si nejsi jistý odpovědí nebo uživatel chce něco, co vyžaduje člověka (konkrétní nabídka, sleva, smlouva, technický detail mimo GEO), napiš do odpovědi token [ESKALACE] a slušně vysvětli, že dotaz předáváš kolegovi z týmu.\n\nKONTEXT KONVERZACE:\nJméno zájemce: {{ $('Sestav kontext').item.json.name }}\nE-mail: {{ $('Sestav kontext').item.json.email }}\n\nDosavadní průběh konverzace:\n{{ $('Sestav kontext').item.json.history || '(zatím žádná historie — toto je první zpráva)' }}\n\nNOVÁ ZPRÁVA UŽIVATELE:\n{{ $('Sestav kontext').item.json.userMessage }}"
-            }
-          ]
-        },
-        "options": {
-          "temperature": 0.6
-        }
-      },
-      "id": "gemini-node",
-      "name": "Gemini AI odpověď",
-      "type": "@n8n/n8n-nodes-langchain.googleGemini",
-      "typeVersion": 1,
-      "position": [
-        240,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Zpracujeme odpověď z Gemini a zjistíme, zda je potřeba eskalace\nfunction extractText(value) {\n  if (!value) return '';\n  if (typeof value === 'string') return value;\n  if (Array.isArray(value)) return value.map(extractText).filter(Boolean).join(' ');\n  if (typeof value === 'object') {\n    if (value.text) return extractText(value.text);\n    if (value.output) return extractText(value.output);\n    if (value.content) return extractText(value.content);\n    if (value.response) return extractText(value.response);\n    if (value.parts) return extractText(value.parts);\n    if (value.candidates) return extractText(value.candidates);\n  }\n  return '';\n}\n\nlet reply = extractText($json).trim();\n\nconst needsEscalation = reply.includes('[ESKALACE]');\nreply = reply.replace(/\\[ESKALACE\\]/g, '').trim();\n\nif (!reply) {\n  reply = 'Děkujeme za zprávu. Předávám ji týmu NUMINA a brzy se vám ozveme s konkrétní odpovědí.';\n}\n\nconst ctx = $('Sestav kontext').first().json;\n\nreturn [{\n  json: {\n    conversationId: ctx.conversationId,\n    name: ctx.name,\n    email: ctx.email,\n    userMessage: ctx.userMessage,\n    reply,\n    needsEscalation,\n    isFirstMessage: ctx.isFirstMessage\n  }\n}];"
-      },
-      "id": "process-reply",
-      "name": "Zpracuj odpověď",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        460,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Konverzace",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "conversationId": "={{ $json.conversationId }}",
-            "role": "assistant",
-            "text": "={{ $json.reply }}",
-            "name": "={{ $json.name }}",
-            "email": "={{ $json.email }}",
-            "timestamp": "={{ $now.toISO() }}"
-          }
-        },
-        "options": {}
-      },
-      "id": "sheets-save-ai",
-      "name": "Ulož odpověď AI",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        680,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "chatId": "REPLACE_WITH_TELEGRAM_GROUP_CHAT_ID",
-        "text": "=🔔 *Nová komunikace na webu NUMINA*\n\n👤 *Jméno:* {{ $json.name }}\n✉️ *E-mail:* {{ $json.email }}\n💬 *Zpráva:* {{ $json.userMessage }}\n\n🤖 *AI odpověděl:* {{ $json.reply }}{{ $json.needsEscalation ? '\\n\\n⚠️ *AI SI NEVÍ RADY — POTŘEBUJE INSTRUKCE.* Odpovězte do skupiny, jak má agent reagovat.' : '' }}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
-      },
-      "id": "telegram-node",
-      "name": "Notifikace do Telegramu",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        900,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { \"reply\": $('Zpracuj odpověď').first().json.reply } }}",
-        "options": {
-          "responseHeaders": {
-            "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              }
-            ]
-          }
-        }
-      },
-      "id": "respond-node",
-      "name": "Odpověz na web",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        1120,
-        300
-      ]
-    }
-  ],
-  "connections": {
-    "Webhook (zpráva z webu)": {
-      "main": [
-        [
-          {
-            "node": "Načti historii vlákna",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Načti historii vlákna": {
-      "main": [
-        [
-          {
-            "node": "Sestav kontext",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sestav kontext": {
-      "main": [
-        [
-          {
-            "node": "Ulož zprávu uživatele",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ulož zprávu uživatele": {
-      "main": [
-        [
-          {
-            "node": "Gemini AI odpověď",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini AI odpověď": {
-      "main": [
-        [
-          {
-            "node": "Zpracuj odpověď",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Zpracuj odpověď": {
-      "main": [
-        [
-          {
-            "node": "Ulož odpověď AI",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ulož odpověď AI": {
-      "main": [
-        [
-          {
-            "node": "Notifikace do Telegramu",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notifikace do Telegramu": {
-      "main": [
-        [
-          {
-            "node": "Odpověz na web",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
-  },
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "pinData": {}
+    "name":  "NUMINA GEO AI Agent",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "geo-agent",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+                                                         "allowedOrigins":  "*"
+                                                     }
+                                     },
+                      "id":  "webhook-node",
+                      "name":  "Webhook (zpráva z webu)",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -640,
+                                       300
+                                   ],
+                      "webhookId":  "geo-agent-webhook"
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "lookup",
+                                         "documentId":  {
+                                                            "__rl":  true,
+                                                            "value":  "REPLACE_WITH_GOOGLE_SHEET_ID",
+                                                            "mode":  "id"
+                                                        },
+                                         "sheetName":  {
+                                                           "__rl":  true,
+                                                           "value":  "Konverzace",
+                                                           "mode":  "name"
+                                                       },
+                                         "lookupColumn":  "conversationId",
+                                         "lookupValue":  "={{ $json.body.conversationId }}",
+                                         "options":  {
+                                                         "returnAllMatches":  true
+                                                     }
+                                     },
+                      "id":  "sheets-read",
+                      "name":  "Načti historii vlákna",
+                      "type":  "n8n-nodes-base.googleSheets",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       -420,
+                                       300
+                                   ],
+                      "alwaysOutputData":  true
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// Sestavíme historii konverzace do textu pro AI\nconst incoming = $(\u0027Webhook (zpráva z webu)\u0027).first().json.body;\nconst conversationId = incoming.conversationId;\nconst name = incoming.name || \u0027Neznámý\u0027;\nconst email = incoming.email || \u0027\u0027;\nconst userMessage = incoming.message || \u0027\u0027;\n\n// Všechny předchozí řádky z Google Sheets pro tuto konverzaci\nconst rows = $input.all().map(i =\u003e i.json).filter(r =\u003e r.conversationId === conversationId);\n\nlet history = \u0027\u0027;\nfor (const r of rows) {\n  if (!r.role || !r.text) continue;\n  if (r.role === \u0027user\u0027) history += \u0027Uživatel: \u0027 + r.text + \u0027\\n\u0027;\n  else if (r.role === \u0027assistant\u0027) history += \u0027Asistent: \u0027 + r.text + \u0027\\n\u0027;\n  else if (r.role === \u0027owner_instruction\u0027) history += \u0027Instrukce majitele webu: \u0027 + r.text + \u0027\\n\u0027;\n}\n\nreturn [{\n  json: {\n    conversationId,\n    name,\n    email,\n    userMessage,\n    history: history.trim(),\n    isFirstMessage: rows.filter(r =\u003e r.role === \u0027user\u0027 || r.role === \u0027assistant\u0027).length === 0\n  }\n}];"
+                                     },
+                      "id":  "build-context",
+                      "name":  "Sestav kontext",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -200,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "append",
+                                         "documentId":  {
+                                                            "__rl":  true,
+                                                            "value":  "REPLACE_WITH_GOOGLE_SHEET_ID",
+                                                            "mode":  "id"
+                                                        },
+                                         "sheetName":  {
+                                                           "__rl":  true,
+                                                           "value":  "Konverzace",
+                                                           "mode":  "name"
+                                                       },
+                                         "columns":  {
+                                                         "mappingMode":  "defineBelow",
+                                                         "value":  {
+                                                                       "conversationId":  "={{ $json.conversationId }}",
+                                                                       "role":  "user",
+                                                                       "text":  "={{ $json.userMessage }}",
+                                                                       "name":  "={{ $json.name }}",
+                                                                       "email":  "={{ $json.email }}",
+                                                                       "timestamp":  "={{ $now.toISO() }}"
+                                                                   }
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "sheets-save-user",
+                      "name":  "Ulož zprávu uživatele",
+                      "type":  "n8n-nodes-base.googleSheets",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       20,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "modelId":  {
+                                                         "__rl":  true,
+                                                         "value":  "models/gemini-2.0-flash",
+                                                         "mode":  "list"
+                                                     },
+                                         "messages":  {
+                                                          "values":  [
+                                                                         {
+                                                                             "content":  "=Jsi přátelský a profesionální AI asistent marketingové agentury NUMINA, která nabízí službu GEO (Generative Engine Optimization) — optimalizaci značek pro to, aby je doporučovaly AI vyhledávače jako ChatGPT, Perplexity, Gemini, Google AI Overviews, Claude a Copilot.\n\nZDROJ PRAVDY O NUMINA:\n- NUMINA pomáhá značkám být viditelné v odpovědích AI vyhledávačů.\n- Služba je určená pro B2B SaaS, e-commerce, služby, lokální lídry a značky, jejichž zákazníci se ptají AI dřív než klasického vyhledávače.\n- GEO Audit stojí 39 000 Kč jednorázově. Obsahuje kompletní audit napříč 6 enginy, analýzu viditelnosti a podílu hlasu, konkurenční srovnání a akční plán s prioritami.\n- GEO Růst stojí 59 000 Kč měsíčně bez dlouhodobého závazku. Obsahuje vše z auditu, průběžnou optimalizaci obsahu, tvorbu entitního a citovatelného obsahu, technickou implementaci, měsíční reporting a prioritní podporu.\n- První pohyb ve viditelnosti lze typicky očekávat do 14 dní. Stabilní růst se buduje v horizontu 2–3 měsíců.\n- Kontakt: projekty@numina.cz, +420 737 499 315.\n\nTVŮJ ÚKOL:\n- Odpovídej česky, vstřícně, lidsky a stručně (2–4 věty).\n- Reaguj konkrétně na to, co uživatel napsal — neopakuj obecné fráze.\n- Cílem je kvalifikovat zájemce: zjisti, co potřebuje, a nasměruj ho k auditu nebo konzultaci.\n- Nikdy neuváděj jiné ceny než 39 000 Kč za GEO Audit a 59 000 Kč/měsíc za GEO Růst.\n- Nikdy si nevymýšlej konkrétní termíny, jména lidí z týmu ani sliby, které neznáš.\n- Pokud historie obsahuje řádek \u0027Instrukce majitele webu:\u0027, ber ho jako prioritní lidskou instrukci pro dané vlákno. Neprozrazuj uživateli interní proces, ale odpověz podle instrukce.\n- Pokud si nejsi jistý odpovědí nebo uživatel chce něco, co vyžaduje člověka (konkrétní nabídka, sleva, smlouva, technický detail mimo GEO), napiš do odpovědi token [ESKALACE] a slušně vysvětli, že dotaz předáváš kolegovi z týmu.\n\nKONTEXT KONVERZACE:\nJméno zájemce: {{ $(\u0027Sestav kontext\u0027).item.json.name }}\nE-mail: {{ $(\u0027Sestav kontext\u0027).item.json.email }}\n\nDosavadní průběh konverzace:\n{{ $(\u0027Sestav kontext\u0027).item.json.history || \u0027(zatím žádná historie — toto je první zpráva)\u0027 }}\n\nNOVÁ ZPRÁVA UŽIVATELE:\n{{ $(\u0027Sestav kontext\u0027).item.json.userMessage }}"
+                                                                         }
+                                                                     ]
+                                                      },
+                                         "options":  {
+                                                         "temperature":  0.6
+                                                     }
+                                     },
+                      "id":  "gemini-node",
+                      "name":  "Gemini AI odpověď",
+                      "type":  "@n8n/n8n-nodes-langchain.googleGemini",
+                      "typeVersion":  1,
+                      "position":  [
+                                       240,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// Zpracujeme odpověď z Gemini a zjistíme, zda je potřeba eskalace\nfunction extractText(value) {\n  if (!value) return \u0027\u0027;\n  if (typeof value === \u0027string\u0027) return value;\n  if (Array.isArray(value)) return value.map(extractText).filter(Boolean).join(\u0027 \u0027);\n  if (typeof value === \u0027object\u0027) {\n    if (value.text) return extractText(value.text);\n    if (value.output) return extractText(value.output);\n    if (value.content) return extractText(value.content);\n    if (value.response) return extractText(value.response);\n    if (value.parts) return extractText(value.parts);\n    if (value.candidates) return extractText(value.candidates);\n  }\n  return \u0027\u0027;\n}\n\nlet reply = extractText($json).trim();\n\nconst needsEscalation = reply.includes(\u0027[ESKALACE]\u0027);\nreply = reply.replace(/\\[ESKALACE\\]/g, \u0027\u0027).trim();\n\nif (!reply) {\n  reply = \u0027Děkujeme za zprávu. Předávám ji týmu NUMINA a brzy se vám ozveme s konkrétní odpovědí.\u0027;\n}\n\nconst ctx = $(\u0027Sestav kontext\u0027).first().json;\n\nreturn [{\n  json: {\n    conversationId: ctx.conversationId,\n    name: ctx.name,\n    email: ctx.email,\n    userMessage: ctx.userMessage,\n    reply,\n    needsEscalation,\n    isFirstMessage: ctx.isFirstMessage\n  }\n}];"
+                                     },
+                      "id":  "process-reply",
+                      "name":  "Zpracuj odpověď",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       460,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "append",
+                                         "documentId":  {
+                                                            "__rl":  true,
+                                                            "value":  "REPLACE_WITH_GOOGLE_SHEET_ID",
+                                                            "mode":  "id"
+                                                        },
+                                         "sheetName":  {
+                                                           "__rl":  true,
+                                                           "value":  "Konverzace",
+                                                           "mode":  "name"
+                                                       },
+                                         "columns":  {
+                                                         "mappingMode":  "defineBelow",
+                                                         "value":  {
+                                                                       "conversationId":  "={{ $json.conversationId }}",
+                                                                       "role":  "assistant",
+                                                                       "text":  "={{ $json.reply }}",
+                                                                       "name":  "={{ $json.name }}",
+                                                                       "email":  "={{ $json.email }}",
+                                                                       "timestamp":  "={{ $now.toISO() }}"
+                                                                   }
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "sheets-save-ai",
+                      "name":  "Ulož odpověď AI",
+                      "type":  "n8n-nodes-base.googleSheets",
+                      "typeVersion":  4.5,
+                      "position":  [
+                                       680,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "chatId":  "REPLACE_WITH_TELEGRAM_GROUP_CHAT_ID",
+                                         "text":  "=🔔 *Nová komunikace na webu NUMINA*\n\n🧵 *Conversation ID:* `{{ $json.conversationId }}`\n👤 *Jméno:* {{ $json.name }}\n✉️ *E-mail:* {{ $json.email }}\n💬 *Zpráva:* {{ $json.userMessage }}\n\n🤖 *AI odpověděl:* {{ $json.reply }}{{ $json.needsEscalation ? \u0027\\n\\n⚠️ *AI SI NEVÍ RADY — POTŘEBUJE INSTRUKCE.* Odpovězte do skupiny ve tvaru:\\n\\n/instrukce \u0027 + $json.conversationId + \u0027 vaše instrukce pro agenta\u0027 : \u0027\u0027 }}",
+                                         "additionalFields":  {
+                                                                  "parse_mode":  "Markdown"
+                                                              }
+                                     },
+                      "id":  "telegram-node",
+                      "name":  "Notifikace do Telegramu",
+                      "type":  "n8n-nodes-base.telegram",
+                      "typeVersion":  1.2,
+                      "position":  [
+                                       900,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "respondWith":  "json",
+                                         "responseBody":  "={{ { \"reply\": $(\u0027Zpracuj odpověď\u0027).first().json.reply } }}",
+                                         "options":  {
+                                                         "responseHeaders":  {
+                                                                                 "entries":  [
+                                                                                                 {
+                                                                                                     "name":  "Access-Control-Allow-Origin",
+                                                                                                     "value":  "*"
+                                                                                                 }
+                                                                                             ]
+                                                                             }
+                                                     }
+                                     },
+                      "id":  "respond-node",
+                      "name":  "Odpověz na web",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1.1,
+                      "position":  [
+                                       1120,
+                                       300
+                                   ]
+                  }
+              ],
+    "connections":  {
+                        "Webhook (zpráva z webu)":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Načti historii vlákna",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    },
+                        "Načti historii vlákna":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Sestav kontext",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Sestav kontext":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Ulož zprávu uživatele",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Ulož zprávu uživatele":  {
+                                                      "main":  [
+                                                                   [
+                                                                       {
+                                                                           "node":  "Gemini AI odpověď",
+                                                                           "type":  "main",
+                                                                           "index":  0
+                                                                       }
+                                                                   ]
+                                                               ]
+                                                  },
+                        "Gemini AI odpověď":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Zpracuj odpověď",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Zpracuj odpověď":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Ulož odpověď AI",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Ulož odpověď AI":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Notifikace do Telegramu",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Notifikace do Telegramu":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Odpověz na web",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "pinData":  {
+
+                }
 }

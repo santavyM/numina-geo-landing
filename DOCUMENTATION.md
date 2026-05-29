@@ -70,6 +70,22 @@ n8n vrátí JSON odpověď zpět na web
 Uživatel vidí odpověď v chatu
 ```
 
+Pro instrukce majitele je doplněný druhý workflow:
+
+```text
+Majitel odpoví v Telegram skupině příkazem /instrukce <conversationId> <text>
+        ↓
+Telegram Trigger v n8n zprávu přijme
+        ↓
+n8n z příkazu vytáhne conversationId a instrukci
+        ↓
+Instrukce se uloží do Google Sheets jako role owner_instruction
+        ↓
+Při další zprávě uživatele hlavní agent instrukci načte do historie vlákna
+        ↓
+Gemini odpoví podle kontextu uživatele i podle instrukce majitele
+```
+
 Frontend posílá na webhook tento payload:
 
 ```json
@@ -95,33 +111,52 @@ Agent má za úkol odpovídat česky, stručně a v kontextu předchozí komunik
 
 Tento token není určený pro uživatele. Workflow ho detekuje, odstraní z odpovědi a do Telegram skupiny přidá upozornění, že je potřeba zásah člověka. Uživatel mezitím dostane přirozenou odpověď, že dotaz předáváme kolegovi z týmu.
 
+Telegram notifikace obsahuje `conversationId` a doporučený formát odpovědi:
+
+```text
+/instrukce <conversationId> <instrukce pro agenta>
+```
+
+Majitel webu tak může napsat instrukci přímo ve skupině. Druhý n8n workflow ji uloží do Google Sheets pod stejným `conversationId`. Při další zprávě uživatele se tato instrukce načte do kontextu jako `Instrukce majitele webu` a agent podle ní odpoví. V této rychlé verzi agent neposílá odpověď uživateli proaktivně bez další zprávy z webu; k tomu by bylo potřeba doplnit polling nebo realtime kanál mezi webem a n8n.
+
 ## 5. Klíčový prompt agenta
 
 Zkrácená verze hlavního promptu v n8n:
 
 ```text
-Jsi přátelský a profesionální AI asistent marketingové agentury NUMINA,
-která nabízí službu GEO (Generative Engine Optimization).
-
-ZDROJ PRAVDY O NUMINA:
-- NUMINA pomáhá značkám být viditelné v odpovědích AI vyhledávačů.
-- GEO Audit stojí 39 000 Kč jednorázově.
-- GEO Růst stojí 59 000 Kč měsíčně bez dlouhodobého závazku.
-- První pohyb ve viditelnosti lze typicky očekávat do 14 dní.
-- Stabilní růst se buduje v horizontu 2–3 měsíců.
-- Kontakt: projekty@numina.cz, +420 737 499 315.
+Jsi přátelský a profesionální AI asistent marketingové agentury NUMINA, která nabízí službu GEO (Generative Engine Optimization) — optimalizaci značek pro to, aby je doporučovaly AI vyhledávače jako ChatGPT, Perplexity, Gemini a Google AI.
 
 TVŮJ ÚKOL:
-- Odpovídej česky, vstřícně, lidsky a stručně.
-- Reaguj konkrétně na to, co uživatel napsal.
+- Odpovídej česky, vstřícně, lidsky a stručně (2–4 věty).
+- Reaguj konkrétně na to, co uživatel napsal — neopakuj obecné fráze.
+- Cílem je kvalifikovat zájemce: zjisti, co potřebuje, a nasměruj ho k nezávazné konzultaci.
+- doporuč nezávaznou analýzu zdarma.
+- Nikdy si nevymýšlej konkrétní termíny, jména lidí z týmu ani sliby, které neznáš.
+- Pokud si nejsi jistý odpovědí nebo uživatel chce něco, co vyžaduje člověka (konkrétní nabídka, smlouva, technický detail mimo GEO), napiš na ZAČÁTEK své odpovědi přesně token [ESKALACE] a pak uživateli slušně napiš, že předáváš dotaz kolegovi z týmu, který se brzy ozve.
+
+ZDROJ PRAVDY O NUMINA:
+- NUMINA dělá GEO, tedy Generative Engine Optimization.
+- GEO pomáhá značkám objevovat se v odpovědích AI vyhledávačů jako ChatGPT, Perplexity, Gemini, Google AI Overviews, Claude a Copilot.
+- Hlavní nabídka:
+  1. GEO Audit — 39 000 Kč jednorázově.
+     Obsahuje kompletní GEO audit napříč 6 enginy, analýzu viditelnosti, podíl hlasu, konkurenční srovnání a akční plán.
+  2. GEO Růst — 59 000 Kč měsíčně.
+     Obsahuje vše z auditu, průběžnou optimalizaci obsahu, tvorbu entitního/citovatelného obsahu, technickou implementaci, měsíční reporting a prioritní podporu.
+- První pohyb ve viditelnosti typicky do 14 dní.
+- Stabilní nárůst zmínek a citací se buduje v horizontu 2–3 měsíců.
+- Kontakt: projekty@numina.cz, +420 737 499 315.
+- Pokud si nejsi jistý, nevymýšlej si. Napiš [ESKALACE] a předej dotaz člověku.
 - Nikdy neuváděj jiné ceny než 39 000 Kč za GEO Audit a 59 000 Kč/měsíc za GEO Růst.
-- Pokud si nejsi jistý nebo je potřeba člověk, napiš do odpovědi token [ESKALACE].
 
 KONTEXT KONVERZACE:
-{{ historie z Google Sheets }}
+Jméno zájemce: {{ $('Sestav kontext').item.json.name }}
+E-mail: {{ $('Sestav kontext').item.json.email }}
+
+Dosavadní průběh konverzace:
+{{ $('Sestav kontext').item.json.history || '(zatím žádná historie — toto je první zpráva)' }}
 
 NOVÁ ZPRÁVA UŽIVATELE:
-{{ nová zpráva z webhooku }}
+{{ $('Sestav kontext').item.json.userMessage }}
 ```
 
 ## 6. Práce s AI nástroji
@@ -133,6 +168,7 @@ AI nástroje jsem použil hlavně pro:
 - návrh n8n workflow a promptu agenta
 - ladění chyb v automatizaci, zejména persistence, Gemini quota, mapování Google Sheets a Telegram Chat ID
 - přípravu dokumentace
+- ClaudeCode (Opus 4.8), Claude Design, ChatGPT 5.5 a Codex
 
 Ručně jsem řešil zejména:
 - napojení frontendu na webhook
@@ -144,14 +180,14 @@ Ručně jsem řešil zejména:
 ## 7. Časový rozpis
 
 Orientační čas:
-- Analýza zadání a rešerše GEO: 30–45 minut
-- Landing page a vizuální úpravy: 2 hodiny
-- Napojení formuláře a chat UI na webhook: 45 minut
-- n8n automatizace, Google Sheets persistence, Gemini, Telegram: 2–3 hodiny
-- Testování a ladění chyb: 1–1,5 hodiny
-- Dokumentace a část B: 1 hodina
+- Analýza zadání a rešerše GEO (už jsem měl zkušenosti předtím): 20 minut
+- Landing page a vizuální úpravy: 1 hodina
+- Napojení formuláře a chat UI na webhook: 10 minut
+- n8n automatizace, Google Sheets persistence, Gemini, Telegram: 1 hodina
+- Testování a ladění chyb: 30 minut
+- Dokumentace a část B: 25 minut
 
-Celkově se projekt pohyboval kolem zadaného rámce přibližně 6 hodin čisté práce, s dodatečným časem na ladění reálných integračních detailů.
+Celkově se projekt pohyboval kolem zadaného rámce přibližně 3 hodin čisté práce.
 
 ## 8. Testování
 
@@ -163,6 +199,7 @@ Testoval jsem:
 - odpověď Gemini v kontextu vlákna
 - zápis odpovědi AI do Google Sheets
 - notifikaci do Telegram skupiny
+- uložení instrukce majitele z Telegramu přes `/instrukce`
 - odpověď zpět na webový chat
 - eskalační scénář přes interní token `[ESKALACE]`
 
@@ -183,4 +220,3 @@ V další fázi bych řešení posunul hlavně v těchto oblastech:
 - GitHub repo: https://github.com/santavyM/numina-geo-landing
 - n8n workflow: export v souboru `numina-workflow.json`
 - AI konverzace: doplnit sdílený odkaz, pokud bude součástí odevzdání
-

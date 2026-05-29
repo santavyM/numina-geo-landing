@@ -1,0 +1,190 @@
+{
+  "name": "NUMINA Telegram Owner Instructions",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram instrukce od majitele",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -420,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json.message || {};\nconst text = (msg.text || '').trim();\nconst from = msg.from || {};\n\nconst match = text.match(/^\\/instrukce\\s+(\\S+)\\s+([\\s\\S]+)/i);\nif (!match) {\n  return [{ json: { ignore: true, chatId: msg.chat?.id, help: 'Použijte formát: /instrukce <conversationId> <instrukce pro agenta>' } }];\n}\n\nreturn [{\n  json: {\n    ignore: false,\n    chatId: msg.chat.id,\n    conversationId: match[1],\n    instruction: match[2].trim(),\n    ownerName: [from.first_name, from.last_name].filter(Boolean).join(' ') || from.username || 'Majitel webu'\n  }\n}];"
+      },
+      "id": "parse-instruction",
+      "name": "Zpracuj instrukci",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-valid-instruction",
+              "leftValue": "={{ $json.ignore }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-valid",
+      "name": "Je to instrukce?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        40,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Konverzace",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "conversationId": "={{ $json.conversationId }}",
+            "role": "owner_instruction",
+            "text": "={{ $json.instruction }}",
+            "name": "={{ $json.ownerName }}",
+            "email": "",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-instruction",
+      "name": "Ulož instrukci majitele",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=✅ Instrukce uložená pro vlákno `{{ $json.conversationId }}`.\n\nAgent ji použije při další zprávě uživatele.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "confirm-instruction",
+      "name": "Potvrď uložení",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "Použijte formát: /instrukce <conversationId> <instrukce pro agenta>",
+        "additionalFields": {}
+      },
+      "id": "send-help",
+      "name": "Pošli nápovědu",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        280,
+        360
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram instrukce od majitele": {
+      "main": [
+        [
+          {
+            "node": "Zpracuj instrukci",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zpracuj instrukci": {
+      "main": [
+        [
+          {
+            "node": "Je to instrukce?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Je to instrukce?": {
+      "main": [
+        [
+          {
+            "node": "Ulož instrukci majitele",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pošli nápovědu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ulož instrukci majitele": {
+      "main": [
+        [
+          {
+            "node": "Potvrď uložení",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
