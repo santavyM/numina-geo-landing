@@ -9,7 +9,6 @@ Landing page pro sluzbu GEO s AI agentem za kontaktnim formularem.
 - `numina-workflow.json` - n8n workflow pro webhook, Google Sheets persistenci, Gemini odpoved a Telegram notifikaci
 - `numina-owner-instructions-workflow.json` - doplnkovy n8n workflow pro instrukce majitele z Telegramu
 - `DOCUMENTATION.md` - projektova dokumentace k praktickemu zadani
-- `CAST_B_ZKUSENOSTI.md` - kratky popis zkusenosti s tvorbou webu
 - `uploads/` - assety pouzite landing page
 
 ## Architektura
