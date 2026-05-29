@@ -7,6 +7,8 @@ Landing page pro sluzbu GEO s AI agentem za kontaktnim formularem.
 - `index.html` - hlavni staticka landing page
 - `numina-landing.html` - stejna landing page pod pracovnim nazvem
 - `numina-workflow.json` - n8n workflow pro webhook, Google Sheets persistenci, Gemini odpoved a Telegram notifikaci
+- `DOCUMENTATION.md` - projektova dokumentace k praktickemu zadani
+- `CAST_B_ZKUSENOSTI.md` - kratky popis zkusenosti s tvorbou webu
 - `uploads/` - assety pouzite landing page
 
 ## Architektura
@@ -23,4 +25,3 @@ V n8n je potreba doplnit:
 - Gemini API credential
 - Telegram bot token
 - Telegram Chat ID skupiny
-
