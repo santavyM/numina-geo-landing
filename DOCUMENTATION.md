@@ -180,6 +180,7 @@ AI nástroje jsem použil hlavně pro:
 
 Ručně jsem řešil zejména:
 - napojení frontendu na webhook
+- Vizuální úpravy frontendu
 - práci s `conversationId` a `localStorage`
 - testování reálného toku dat mezi webem, n8n, Sheets, Gemini a Telegramem
 - úpravy konkrétních chyb v n8n nodech
@@ -191,11 +192,11 @@ Orientační čas:
 - Analýza zadání a rešerše GEO (už jsem měl zkušenosti předtím): 20 minut
 - Landing page a vizuální úpravy: 1 hodina
 - Napojení formuláře a chat UI na webhook: 10 minut
-- n8n automatizace, Google Sheets persistence, Gemini, Telegram: 1 hodina
+- n8n automatizace, Google Sheets persistence, Gemini, Telegram: 1.5 hodiny
 - Testování a ladění chyb: 30 minut
 - Dokumentace a část B: 25 minut
 
-Celkově se projekt pohyboval kolem zadaného rámce přibližně 3 hodin čisté práce.
+Celkově se projekt pohyboval kolem zadaného rámce přibližně 3.5 hodiny čisté práce.
 
 ## 8. Testování
 
