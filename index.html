@@ -652,7 +652,10 @@
     });
     if (!res.ok) throw new Error('Webhook returned ' + res.status);
     const data = await res.json();
-    return (data.reply || data.answer || data.message || '').toString().trim() || null;
+    return (data.reply || data.answer || data.message || '')
+      .toString()
+      .replace(/\[ESKALACE\]/g, '')
+      .trim() || null;
   }
   async function respond(q) {
     const ind = typingIndicator();
