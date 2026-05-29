@@ -24,6 +24,12 @@ Pokud AI oznaci zpravu jako eskalovanou, Telegram notifikace obsahuje `conversat
 
 Druhy workflow tuto zpravu ulozi do Google Sheets jako `owner_instruction`. Hlavni agent ji pri dalsi zprave uzivatele nacte do kontextu a odpovi podle ni.
 
+Test instrukce:
+
+```txt
+/instrukce <conversationId> Nabidni individualni balicek a napis, ze se ozveme s konkretni nabidkou.
+```
+
 ## Nasazeni
 
 Web je staticky, proto staci Cloudflare Pages, Vercel nebo Netlify. Jako entry point pouzijte `index.html`.

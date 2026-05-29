@@ -119,6 +119,14 @@ Telegram notifikace obsahuje `conversationId` a doporučený formát odpovědi:
 
 Majitel webu tak může napsat instrukci přímo ve skupině. Druhý n8n workflow ji uloží do Google Sheets pod stejným `conversationId`. Při další zprávě uživatele se tato instrukce načte do kontextu jako `Instrukce majitele webu` a agent podle ní odpoví. V této rychlé verzi agent neposílá odpověď uživateli proaktivně bez další zprávy z webu; k tomu by bylo potřeba doplnit polling nebo realtime kanál mezi webem a n8n.
 
+Prakticky to funguje tak, že Telegram zpráva při eskalaci obsahuje konkrétní ID vlákna. Majitel webu pak ve skupině odpoví například:
+
+```text
+/instrukce ac310aff-e891-4480-82f4-0fa4b0e81e90 Nabídni mu individuální balíček a napiš, že se ozveme s konkrétní nabídkou.
+```
+
+Doplňkový workflow tuto instrukci uloží do stejného listu `Konverzace` s rolí `owner_instruction`. Hlavní workflow při další zprávě uživatele načítá nejen zprávy `user` a `assistant`, ale i `owner_instruction`, takže Gemini dostane lidskou instrukci přímo v historii konverzace.
+
 ## 5. Klíčový prompt agenta
 
 Zkrácená verze hlavního promptu v n8n:
@@ -200,6 +208,8 @@ Testoval jsem:
 - zápis odpovědi AI do Google Sheets
 - notifikaci do Telegram skupiny
 - uložení instrukce majitele z Telegramu přes `/instrukce`
+- potvrzení uložení instrukce zpět do Telegram skupiny
+- načtení `owner_instruction` do další odpovědi agenta
 - odpověď zpět na webový chat
 - eskalační scénář přes interní token `[ESKALACE]`
 
@@ -208,7 +218,7 @@ Testoval jsem:
 V další fázi bych řešení posunul hlavně v těchto oblastech:
 - nahradil Google Sheets robustnější databází, například Supabase nebo PostgreSQL
 - přidal jednoduchý admin přehled konverzací
-- doplnil možnost, aby majitel webu odpověděl v Telegramu a agent tuto instrukci použil v další odpovědi
+- doplnil proaktivní doručení odpovědi uživateli po instrukci majitele, například přes polling nebo realtime kanál
 - přidal server-side proxy pro webhook, aby URL nebyla přímo ve frontendu
 - doplnil analytiku, například Cloudflare Web Analytics nebo Plausible
 - přidal reálné měření konverzí a událostí formuláře
