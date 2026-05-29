@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NUMINA — GEO agentura pro éru AI vyhledávání</title>
+<link rel="preconnect" href="https://api.fontshare.com" />
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          cream: '#ece6da',
+          paper: '#f3eee4',
+          navy: '#191955',
+          navy2: '#12123f',
+          ink: '#1b1925',
+          mut: '#6f6a78',
+        },
+        fontFamily: {
+          sans: ['Satoshi', 'system-ui', 'sans-serif'],
+          serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { background: #ece6da; color: #1b1925; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  ::selection { background: #191955; color: #ece6da; }
+
+  .ac { font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: 0; }
+
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 9999px; font-weight: 500; transition: all .28s cubic-bezier(.2,.7,.3,1); }
+  .btn-navy { background: #191955; color: #ece6da; }
+  .btn-navy:hover { background: #232374; transform: translateY(-1px); box-shadow: 0 14px 30px -12px rgba(25,25,85,.55); }
+  .btn-outline { border: 1px solid rgba(27,25,37,.22); color: #1b1925; }
+  .btn-outline:hover { background: rgba(27,25,37,.05); border-color: rgba(27,25,37,.4); }
+  .btn-cream { background: #ece6da; color: #191955; }
+  .btn-cream:hover { background: #fff; transform: translateY(-1px); }
+
+  .reveal { transform: translateY(26px); transition: transform .85s cubic-bezier(.2,.7,.3,1); will-change: transform; }
+  .reveal.in { transform: none; }
+
+  /* editor / terminal */
+  .cursor { display: inline-block; width: 8px; height: 1.05em; background: #8fe0b0; margin-left: 1px; transform: translateY(2px); animation: blink 1.05s steps(1) infinite; }
+  @keyframes blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
+
+  .marquee { display: flex; width: max-content; animation: scroll 40s linear infinite; }
+  .marquee:hover { animation-play-state: paused; }
+  @keyframes scroll { to { transform: translateX(-50%); } }
+  .fade-x { -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); }
+
+  @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.65); } }
+  .pulse-dot { animation: pulse-dot 1.3s ease-in-out infinite; }
+
+  .typing-dots span { animation: td 1.2s infinite; }
+  .typing-dots span:nth-child(2) { animation-delay: .15s; }
+  .typing-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes td { 0%,60%,100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
+  .nav-wrap { transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; }
+  .nav-wrap.scrolled { background: rgba(236,230,218,.82); backdrop-filter: blur(12px); border-color: rgba(27,25,37,.1); }
+
+  /* editor token colors (on navy) */
+  .tok-com { color: rgba(236,230,218,.42); }
+  .tok-key { color: #e9c08a; }
+  .tok-str { color: #9fd8c0; }
+  .tok-fn  { color: #b9c6ff; }
+  .tok-ok  { color: #8fe0b0; }
+
+  .hair { border-top: 1px solid rgba(27,25,37,.14); }
+</style>
+</head>
+<body class="font-sans">
+
+  <!-- NAV -->
+  <header id="nav" class="nav-wrap fixed top-0 inset-x-0 z-50">
+    <nav class="max-w-[1180px] mx-auto px-6 h-[70px] flex items-center justify-between">
+      <a href="#top" class="font-sans font-black text-[22px] tracking-[-0.03em]">NUMINA</a>
+      <div class="hidden md:flex items-center gap-9 text-[15px] text-ink/70">
+        <a href="#co-je-geo" class="hover:text-ink transition-colors">Co je GEO</a>
+        <a href="#proces" class="hover:text-ink transition-colors">Proces</a>
+        <a href="#cenik" class="hover:text-ink transition-colors">Ceník</a>
+        <a href="#kontakt" class="hover:text-ink transition-colors">Kontakt</a>
+      </div>
+      <a href="#kontakt" class="btn btn-navy px-5 py-2.5 text-[14px]">Získat audit</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="max-w-[1180px] mx-auto px-6 pt-36 pb-20 md:pt-44 md:pb-24">
+      <div class="grid lg:grid-cols-[1.04fr_0.96fr] gap-12 lg:gap-16 items-center">
+        <div class="reveal">
+          <div class="inline-flex items-center gap-2.5 text-[13.5px] text-mut mb-8">
+            <span class="flex items-center gap-0.5" style="color:#e2693f;">
+              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+            </span>
+            <span class="text-ink/60">GEO agentura pro éru AI vyhledávání</span>
+          </div>
+          <h1 class="font-black leading-[0.96] tracking-[-0.03em] text-[clamp(2.7rem,6.3vw,4.7rem)]">
+            Buďte značkou,<br />kterou AI <span class="ac font-normal tracking-normal" style="color:#191955;">doporučuje.</span>
+          </h1>
+          <p class="mt-7 text-[18px] md:text-[19px] leading-relaxed text-ink/70 max-w-[34rem]">
+            Lidé se přestávají ptát Googlu a začínají se ptát AI. GEO optimalizuje vaši značku pro generativní vyhledávače — ChatGPT, Perplexity, Gemini i Google AI Overviews. Když se zeptají, ať padne vaše jméno.
+          </p>
+          <div class="mt-9 flex flex-wrap items-center gap-3">
+            <a href="#kontakt" class="btn btn-navy px-6 py-3.5 text-[16px]">
+              Získat GEO audit
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a href="#proces" class="btn btn-outline px-6 py-3.5 text-[16px]">Jak to funguje</a>
+          </div>
+          <div class="mt-11 flex items-center gap-8 text-[13px] text-mut">
+            <div><span class="text-ink font-black text-[26px] tracking-tight">9×</span><br />vyšší zmínky v AI</div>
+            <div class="w-px h-10 bg-ink/15"></div>
+            <div><span class="text-ink font-black text-[26px] tracking-tight">6</span><br />pokrytých enginů</div>
+            <div class="w-px h-10 bg-ink/15"></div>
+            <div><span class="text-ink font-black text-[26px] tracking-tight">14 dní</span><br />k prvním výsledkům</div>
+          </div>
+        </div>
+
+        <!-- LIVE AI GENERATING EDITOR -->
+        <div class="reveal" style="transition-delay:.12s">
+          <div class="rounded-2xl bg-navy text-cream shadow-2xl shadow-navy/25 overflow-hidden ring-1 ring-navy/10">
+            <div class="flex items-center gap-2 px-4 h-11 border-b border-white/10">
+              <span class="w-3 h-3 rounded-full bg-[#ff5f57]/80"></span>
+              <span class="w-3 h-3 rounded-full bg-[#febc2e]/80"></span>
+              <span class="w-3 h-3 rounded-full bg-[#28c840]/80"></span>
+              <div class="ml-3 flex items-center gap-2 text-[12.5px] text-cream/55 font-mono">
+                <span class="w-2 h-2 rounded-full pulse-dot bg-[#8fe0b0]"></span>
+                <span id="gen-label">AI generuje design…</span>
+              </div>
+              <span class="ml-auto text-[11px] text-cream/35 font-mono">numina-engine</span>
+            </div>
+            <div id="code" class="font-mono text-[13.5px] leading-[1.72] p-5 h-[326px] overflow-hidden whitespace-pre-wrap"></div>
+            <div class="px-5 pb-4 -mt-1">
+              <div class="h-1 rounded-full bg-white/10 overflow-hidden">
+                <div id="gen-bar" class="h-full rounded-full bg-[#8fe0b0] transition-[width] duration-200" style="width:0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MARQUEE -->
+    <section class="py-9 hair border-b border-ink/10">
+      <p class="text-center text-[12px] uppercase tracking-[0.24em] text-mut mb-7">Optimalizujeme viditelnost napříč AI enginy</p>
+      <div class="fade-x overflow-hidden">
+        <div class="marquee" id="marquee"></div>
+      </div>
+    </section>
+
+    <!-- CO JE GEO (navy full-bleed) -->
+    <section id="co-je-geo" class="bg-navy text-cream">
+      <div class="max-w-[1180px] mx-auto px-6 py-28 md:py-36">
+        <div class="reveal max-w-3xl">
+          <p class="text-[12.5px] uppercase tracking-[0.24em] text-cream/45 mb-6">Co je GEO</p>
+          <h2 class="font-black text-[clamp(2rem,4.6vw,3.3rem)] leading-[1.04] tracking-[-0.025em]">
+            SEO optimalizovalo pro Google.<br /><span class="ac font-normal tracking-normal text-cream/95">GEO optimalizuje pro AI.</span>
+          </h2>
+          <p class="mt-6 text-[18px] leading-relaxed text-cream/70">
+            Vyhledávání se přesouvá. Místo deseti modrých odkazů dostávají uživatelé jednu odpověď — vygenerovanou AI. GEO je disciplína, která rozhoduje o tom, zda v té odpovědi bude vaše značka, nebo konkurence.
+          </p>
+        </div>
+
+        <div class="mt-14 grid md:grid-cols-3 gap-5">
+          <div class="reveal bg-paper text-ink rounded-2xl p-7" style="transition-delay:.05s">
+            <div class="text-mut font-serif italic text-[34px] leading-none mb-5">01</div>
+            <h3 class="font-bold text-[21px] mb-2.5 tracking-tight">Pro koho</h3>
+            <p class="text-[15.5px] leading-relaxed text-ink/65">Pro značky, jejichž zákazníci se ptají AI dřív, než otevřou web. B2B SaaS, e‑commerce, služby i lokální lídry, kteří chtějí být první volbou v doporučení.</p>
+          </div>
+          <div class="reveal bg-paper text-ink rounded-2xl p-7" style="transition-delay:.12s">
+            <div class="text-mut font-serif italic text-[34px] leading-none mb-5">02</div>
+            <h3 class="font-bold text-[21px] mb-2.5 tracking-tight">Proč teď</h3>
+            <p class="text-[15.5px] leading-relaxed text-ink/65">AI vyhledávání roste raketově a pravidla viditelnosti se teprve píší. Kdo si pozici v odpovědích zajistí dnes, bude těžko dostižitelný — stejně jako první weby na Googlu.</p>
+          </div>
+          <div class="reveal bg-paper text-ink rounded-2xl p-7" style="transition-delay:.19s">
+            <div class="text-mut font-serif italic text-[34px] leading-none mb-5">03</div>
+            <h3 class="font-bold text-[21px] mb-2.5 tracking-tight">Co získáte</h3>
+            <p class="text-[15.5px] leading-relaxed text-ink/65">Měřitelný podíl hlasu v AI odpovědích, stabilní příliv kvalifikované poptávky a obsah, který AI cituje jako autoritu ve vašem oboru.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROCES -->
+    <section id="proces" class="max-w-[1180px] mx-auto px-6 py-28 md:py-36">
+      <div class="reveal max-w-2xl">
+        <p class="text-[12.5px] uppercase tracking-[0.24em] text-mut mb-6">Proces</p>
+        <h2 class="font-black text-[clamp(2rem,4.6vw,3.3rem)] leading-[1.04] tracking-[-0.025em]">
+          Od neviditelnosti<br />k <span class="ac font-normal tracking-normal" style="color:#191955;">doporučení</span> ve čtyřech krocích
+        </h2>
+      </div>
+
+      <div class="mt-16 grid md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12" id="process"></div>
+    </section>
+
+    <!-- CENÍK -->
+    <section id="cenik" class="max-w-[1000px] mx-auto px-6 py-28 md:py-36">
+      <div class="reveal text-center max-w-2xl mx-auto">
+        <p class="text-[12.5px] uppercase tracking-[0.24em] text-mut mb-6">Ceník</p>
+        <h2 class="font-black text-[clamp(2rem,4.6vw,3.3rem)] leading-[1.04] tracking-[-0.025em]">
+          Začněte auditem,<br />rozjeďte <span class="ac font-normal tracking-normal" style="color:#191955;">růst.</span>
+        </h2>
+        <p class="mt-5 text-[17px] text-ink/65">Transparentní ceny bez závazku na 12 měsíců. Zrušíte kdykoli.</p>
+      </div>
+
+      <div class="mt-14 grid md:grid-cols-2 gap-5 items-stretch">
+        <!-- Audit -->
+        <div class="reveal rounded-2xl border border-ink/15 bg-paper p-8 flex flex-col">
+          <h3 class="font-bold text-[24px] tracking-tight">GEO Audit</h3>
+          <p class="text-[15px] text-ink/60 mt-1.5">Zjistěte, jak vás dnes AI vidí.</p>
+          <div class="mt-7 flex items-end gap-1.5">
+            <span class="font-black text-[42px] leading-none tracking-tight">39 000</span>
+            <span class="text-mut text-[15px] mb-1.5">Kč jednorázově</span>
+          </div>
+          <ul class="mt-8 space-y-3.5 text-[15px] text-ink/70 flex-1" data-feat></ul>
+          <a href="#kontakt" class="btn btn-outline justify-center mt-8 py-3.5 text-[15px]">Objednat audit</a>
+        </div>
+
+        <!-- Růst (popular) -->
+        <div class="reveal rounded-2xl bg-navy text-cream p-8 flex flex-col relative" style="transition-delay:.1s">
+          <span class="absolute -top-3 left-8 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium text-paper" style="background:#e2693f;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.6 6.6L22 9.2l-5 4.6L18.4 22 12 18.3 5.6 22 7 13.8 2 9.2l7.4-.6Z"/></svg>
+            Nejoblíbenější
+          </span>
+          <h3 class="font-bold text-[24px] tracking-tight">GEO Růst</h3>
+          <p class="text-[15px] text-cream/60 mt-1.5">Průběžná optimalizace a měřitelný posun.</p>
+          <div class="mt-7 flex items-end gap-1.5">
+            <span class="font-black text-[42px] leading-none tracking-tight">59 000</span>
+            <span class="text-cream/55 text-[15px] mb-1.5">Kč / měsíc</span>
+          </div>
+          <ul class="mt-8 space-y-3.5 text-[15px] text-cream/80 flex-1" data-feat-pro></ul>
+          <a href="#kontakt" class="btn btn-cream justify-center mt-8 py-3.5 text-[15px]">Začít růst</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- KONTAKT -->
+    <section id="kontakt" class="max-w-[1180px] mx-auto px-6 py-28 md:py-36">
+      <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 items-start">
+        <div class="reveal">
+          <p class="text-[12.5px] uppercase tracking-[0.24em] text-mut mb-6">Kontakt</p>
+          <h2 class="font-black text-[clamp(2rem,4.4vw,3rem)] leading-[1.04] tracking-[-0.025em]">
+            Pojďme zjistit,<br />jak vás <span class="ac font-normal tracking-normal" style="color:#191955;">vidí</span> AI.
+          </h2>
+          <p class="mt-6 text-[17px] leading-relaxed text-ink/65 max-w-md">Napište nám pár řádků o vaší značce. Ozveme se do 24 hodin s prvním pohledem na vaši viditelnost v AI odpovědích.</p>
+
+          <div class="mt-7 flex flex-col gap-2 text-[15.5px]">
+            <a href="mailto:projekty@numina.cz" class="inline-flex items-center gap-2.5 text-ink hover:text-navy transition-colors">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              projekty@numina.cz
+            </a>
+            <span class="inline-flex items-center gap-2.5 text-ink">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2H7a2 2 0 0 1 2 1.7c.1 1 .4 1.8.7 2.7a2 2 0 0 1-.4 2.1L8 9.5a16 16 0 0 0 6 6l1-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7A2 2 0 0 1 22 16.9Z"/></svg>
+              +420 737 499 315
+            </span>
+          </div>
+
+          <form id="contact-form" class="mt-9 space-y-4 max-w-md" novalidate>
+            <div>
+              <label class="block text-[13.5px] text-mut mb-1.5">Jméno</label>
+              <input name="name" type="text" required class="w-full rounded-xl bg-paper border border-ink/15 px-4 py-3 text-[15px] outline-none focus:border-navy/60 transition-colors placeholder:text-mut/60" placeholder="Jan Novák" />
+            </div>
+            <div>
+              <label class="block text-[13.5px] text-mut mb-1.5">E-mail</label>
+              <input name="email" type="email" required class="w-full rounded-xl bg-paper border border-ink/15 px-4 py-3 text-[15px] outline-none focus:border-navy/60 transition-colors placeholder:text-mut/60" placeholder="jan@firma.cz" />
+            </div>
+            <div>
+              <label class="block text-[13.5px] text-mut mb-1.5">Zpráva</label>
+              <textarea name="message" rows="4" required class="w-full rounded-xl bg-paper border border-ink/15 px-4 py-3 text-[15px] outline-none focus:border-navy/60 transition-colors resize-none placeholder:text-mut/60" placeholder="Krátce o vaší značce a cílech…"></textarea>
+            </div>
+            <button type="submit" class="btn btn-navy w-full justify-center py-3.5 text-[16px]">Spustit konverzaci s AI</button>
+            <p id="form-msg" class="text-[14px] hidden"></p>
+          </form>
+        </div>
+
+        <!-- AI CHAT ASSISTANT -->
+        <div class="reveal" style="transition-delay:.1s">
+          <div class="rounded-2xl bg-navy text-cream overflow-hidden flex flex-col h-[564px] shadow-2xl shadow-navy/25">
+            <div class="flex items-center gap-3 px-5 h-14 border-b border-white/10">
+              <span class="grid place-items-center w-8 h-8 rounded-lg bg-white/8 ring-1 ring-white/15">
+                <span class="w-2 h-2 rounded-full pulse-dot bg-[#8fe0b0]"></span>
+              </span>
+              <div>
+                <p class="text-[14.5px] font-medium leading-tight">AI asistent NUMINA</p>
+                <p class="text-[12px] text-cream/55 leading-tight">Zeptejte se na cokoli o GEO</p>
+              </div>
+              <span class="ml-auto text-[11.5px] text-cream/55 font-mono flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full pulse-dot bg-[#8fe0b0]"></span>online</span>
+            </div>
+            <div id="chat-log" class="flex-1 overflow-y-auto px-5 py-5 space-y-3.5"></div>
+            <div class="px-3 pb-3">
+              <div id="chat-suggest" class="flex flex-wrap gap-2 px-1 pb-2.5"></div>
+              <form id="chat-form" class="flex items-center gap-2">
+                <input id="chat-input" type="text" autocomplete="off" class="flex-1 rounded-xl bg-white/8 border border-white/12 px-4 py-3 text-[14.5px] text-cream outline-none focus:border-white/35 transition-colors placeholder:text-cream/40" placeholder="Napište dotaz…" />
+                <button type="submit" class="btn btn-cream px-4 py-3" aria-label="Odeslat">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-navy text-cream">
+    <div class="max-w-[1180px] mx-auto px-6 pt-20 pb-10">
+      <div class="grid md:grid-cols-[1.4fr_1fr_1fr] gap-10 pb-16">
+        <div>
+          <p class="text-[18px] leading-relaxed text-cream/85 max-w-sm">Děláme značky <span class="ac">viditelnými</span> v odpovědích umělé inteligence.</p>
+          <div class="mt-6 flex flex-col gap-1.5 text-[15px] text-cream/70">
+            <a href="mailto:projekty@numina.cz" class="hover:text-cream transition-colors">projekty@numina.cz</a>
+            <span>+420 737 499 315</span>
+          </div>
+        </div>
+        <div>
+          <p class="text-[12.5px] uppercase tracking-[0.22em] text-cream/40 mb-4">Navigace</p>
+          <ul class="space-y-2.5 text-[15px] text-cream/70">
+            <li><a href="#co-je-geo" class="hover:text-cream transition-colors">Co je GEO</a></li>
+            <li><a href="#proces" class="hover:text-cream transition-colors">Proces</a></li>
+            <li><a href="#cenik" class="hover:text-cream transition-colors">Ceník</a></li>
+            <li><a href="#kontakt" class="hover:text-cream transition-colors">Kontakt</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="text-[12.5px] uppercase tracking-[0.22em] text-cream/40 mb-4">Engine</p>
+          <ul class="space-y-2.5 text-[15px] text-cream/70">
+            <li>ChatGPT &amp; Perplexity</li>
+            <li>Gemini &amp; Google AI</li>
+            <li>Claude &amp; Copilot</li>
+          </ul>
+        </div>
+      </div>
+      <div class="font-black tracking-[-0.04em] leading-none text-cream/95 text-[clamp(4rem,17vw,12rem)]">NUMINA</div>
+      <div class="mt-8 pt-6 border-t border-white/10 flex flex-col md:flex-row gap-3 items-center justify-between text-[13px] text-cream/45">
+        <p>© <span id="year"></span> NUMINA — Generative Engine Optimization. Fiktivní agentura.</p>
+        <p>Vytvořeno pro éru AI vyhledávání.</p>
+      </div>
+    </div>
+  </footer>
+
+<script>
+(function () {
+  'use strict';
+  const WEBHOOK_URL = "https://santavy.app.n8n.cloud/webhook/geo-agent";
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  /* nav scroll state */
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 12);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  /* scroll reveal — reveal in-view items instantly, animate the rest on scroll */
+  const io = new IntersectionObserver(
+    (entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }),
+    { threshold: 0.12 }
+  );
+  function observeReveals(scope) {
+    (scope || document).querySelectorAll('.reveal:not(.in)').forEach((el) => io.observe(el));
+  }
+  function revealInView() {
+    const vh = window.innerHeight || 800;
+    document.querySelectorAll('.reveal:not(.in)').forEach((el) => {
+      if (el.getBoundingClientRect().top < vh * 0.94) el.classList.add('in');
+    });
+  }
+  observeReveals();
+  requestAnimationFrame(() => requestAnimationFrame(revealInView));
+  window.addEventListener('scroll', revealInView, { passive: true });
+  // ultimate safety net (e.g. IntersectionObserver never fires in an offscreen frame)
+  setTimeout(() => document.querySelectorAll('.reveal:not(.in)').forEach((el) => el.classList.add('in')), 900);
+
+  function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* AI engine marquee (generic abstract glyphs, not brand logos) */
+  const engines = [
+    { n: 'ChatGPT',    g: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16" opacity=".5"/>' },
+    { n: 'Perplexity', g: '<path d="M12 3 4 8v8l8 5 8-5V8z"/><path d="M12 12v9M4 8l8 4 8-4" opacity=".5"/>' },
+    { n: 'Gemini',     g: '<path d="M12 2c0 5.5 4.5 10 10 10-5.5 0-10 4.5-10 10 0-5.5-4.5-10-10-10 5.5 0 10-4.5 10-10Z"/>' },
+    { n: 'Google AI',  g: '<circle cx="12" cy="12" r="8"/><path d="M12 12h8"/><path d="M12 12 8 6" opacity=".5"/>' },
+    { n: 'Claude',     g: '<path d="M5 18 11 5h2l6 13M8 13h8"/>' },
+    { n: 'Copilot',    g: '<rect x="4" y="8" width="16" height="9" rx="4.5"/><circle cx="9" cy="12.5" r="1.2" fill="currentColor"/><circle cx="15" cy="12.5" r="1.2" fill="currentColor"/>' },
+  ];
+  const item = (e) =>
+    `<div class="flex items-center gap-2.5 px-9 shrink-0 text-ink/45 hover:text-ink transition-colors">
+       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">${e.g}</svg>
+       <span class="text-[19px] font-bold tracking-tight whitespace-nowrap">${e.n}</span>
+     </div>`;
+  const row = engines.map(item).join('');
+  document.getElementById('marquee').innerHTML = row + row;
+
+  /* process steps */
+  const steps = [
+    { k: '01', t: 'Audit', d: 'Změříme, jak často a v jakém kontextu vás AI engine zmiňují dnes — a kde místo vás doporučí konkurenci.' },
+    { k: '02', t: 'Strategie', d: 'Sestavíme mapu dotazů a entit, na kterých chcete dominovat, a prioritizujeme příležitosti podle dopadu.' },
+    { k: '03', t: 'Technická optimalizace', d: 'Tvoříme entitní obsah, strukturovaná data a citovatelné zdroje, kterým AI věří a které cituje jako autoritu.' },
+    { k: '04', t: 'Měření', d: 'Sledujeme váš podíl hlasu v AI odpovědích napříč enginy a každý měsíc ladíme strategii podle dat.' },
+  ];
+  document.getElementById('process').innerHTML = steps
+    .map(
+      (s, i) => `
+      <div class="reveal pt-6 hair" style="transition-delay:${i * 0.07}s">
+        <div class="font-serif italic text-[40px] leading-none text-ink/30 mb-5">${s.k}</div>
+        <h3 class="font-bold text-[20px] leading-snug mb-2.5 tracking-tight">${s.t}</h3>
+        <p class="text-[14.5px] leading-relaxed text-ink/60">${s.d}</p>
+      </div>`
+    )
+    .join('');
+  observeReveals(document.getElementById('process'));
+  revealInView();
+
+  /* pricing features */
+  const check = (txt, navy) =>
+    `<li class="flex gap-3">
+       <svg class="mt-0.5 shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${navy ? '#8fe0b0' : '#191955'}" stroke-width="2.4"><path d="m5 13 4 4L19 7"/></svg>
+       <span>${txt}</span>
+     </li>`;
+  document.querySelector('[data-feat]').innerHTML = [
+    'Kompletní GEO audit napříč 6 enginy',
+    'Analýza viditelnosti a podílu hlasu',
+    'Konkurenční srovnání',
+    'Akční plán s prioritami',
+  ].map((t) => check(t, false)).join('');
+  document.querySelector('[data-feat-pro]').innerHTML = [
+    'Vše z GEO Auditu',
+    'Průběžná optimalizace obsahu',
+    'Tvorba entitního a citovatelného obsahu',
+    'Technická implementace',
+    'Měsíční reporting viditelnosti',
+    'Prioritní podpora a strateg na telefonu',
+  ].map((t) => check(t, true)).join('');
+
+  /* HERO typewriter */
+  const codeEl = document.getElementById('code');
+  const labelEl = document.getElementById('gen-label');
+  const barEl = document.getElementById('gen-bar');
+  const cursor = '<span class="cursor"></span>';
+
+  const scenes = [
+    { label: 'AI generuje obsah…', lines: [
+      { t: '// entita: značka klienta', c: 'tok-com' },
+      { t: 'const profil = {', c: 'tok-key' },
+      { t: '  značka: "Vaše firma",', c: 'tok-str' },
+      { t: '  kategorie: "B2B SaaS",', c: 'tok-str' },
+      { t: '  autorita: "vysoká",', c: 'tok-str' },
+      { t: '}', c: 'tok-key' },
+      { t: '→ generuji odpovědi pro ChatGPT…', c: 'tok-fn' },
+      { t: '✓ Značka zmíněna v 9/10 odpovědích', c: 'tok-ok' },
+    ]},
+    { label: 'AI optimalizuje strategii…', lines: [
+      { t: '// mapuji prostor dotazů', c: 'tok-com' },
+      { t: 'analyzuji(240 dotazů)', c: 'tok-fn' },
+      { t: 'porovnávám konkurenci…', c: 'tok-fn' },
+      { t: 'priorita = "produktové srovnání"', c: 'tok-str' },
+      { t: 'dopad = "vysoký"', c: 'tok-str' },
+      { t: '✓ Nalezeno 18 příležitostí', c: 'tok-ok' },
+    ]},
+    { label: 'AI generuje design…', lines: [
+      { t: '<section class="answer">', c: 'tok-key' },
+      { t: '  <Badge>Doporučeno AI</Badge>', c: 'tok-fn' },
+      { t: '  <Brand name="Vaše firma" />', c: 'tok-fn' },
+      { t: '  <Citace zdroj="numina.cz" />', c: 'tok-fn' },
+      { t: '</section>', c: 'tok-key' },
+      { t: '✓ Připraveno k publikaci', c: 'tok-ok' },
+    ]},
+  ];
+
+  let sIdx = 0;
+  function renderScene(done, curLine, typed) {
+    const scene = scenes[sIdx];
+    let html = '';
+    for (let i = 0; i < done; i++) html += `<div class="${scene.lines[i].c}">${escapeHtml(scene.lines[i].t)}</div>`;
+    if (curLine != null) html += `<div class="${scene.lines[curLine].c}">${escapeHtml(typed)}${cursor}</div>`;
+    codeEl.innerHTML = html;
+  }
+  function typeScene() {
+    const scene = scenes[sIdx];
+    labelEl.textContent = scene.label;
+    const totalChars = scene.lines.reduce((a, l) => a + l.t.length, 0);
+    let line = 0, ch = 0, doneChars = 0;
+    function step() {
+      const text = scene.lines[line].t;
+      ch++;
+      renderScene(line, line, text.slice(0, ch));
+      doneChars++;
+      barEl.style.width = Math.min(100, (doneChars / totalChars) * 100).toFixed(0) + '%';
+      if (ch >= text.length) {
+        line++; ch = 0;
+        if (line >= scene.lines.length) {
+          renderScene(scene.lines.length, null, '');
+          barEl.style.width = '100%';
+          setTimeout(nextScene, 2400);
+          return;
+        }
+        setTimeout(step, 340);
+        return;
+      }
+      setTimeout(step, 16 + Math.random() * 34);
+    }
+    barEl.style.width = '0%';
+    step();
+  }
+  function nextScene() { sIdx = (sIdx + 1) % scenes.length; typeScene(); }
+  typeScene();
+
+  /* contact form */
+  const form = document.getElementById('contact-form');
+  const formMsg = document.getElementById('form-msg');
+  const visitor = {
+    conversationId: localStorage.getItem('numinaConversationId') || '',
+    name: localStorage.getItem('numinaVisitorName') || '',
+    email: localStorage.getItem('numinaVisitorEmail') || '',
+  };
+  if (!visitor.conversationId) {
+    visitor.conversationId =
+      (window.crypto && window.crypto.randomUUID)
+        ? window.crypto.randomUUID()
+        : 'numina-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    localStorage.setItem('numinaConversationId', visitor.conversationId);
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = new FormData(form);
+    const name = (data.get('name') || '').toString().trim();
+    const email = (data.get('email') || '').toString().trim();
+    const message = (data.get('message') || '').toString().trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    formMsg.classList.remove('hidden');
+    if (!name || !emailOk || !message) {
+      formMsg.style.color = '#c0492a';
+      formMsg.textContent = 'Vyplňte prosím jméno, platný e-mail a zprávu.';
+      return;
+    }
+    visitor.name = name;
+    visitor.email = email;
+    localStorage.setItem('numinaVisitorName', name);
+    localStorage.setItem('numinaVisitorEmail', email);
+
+    formMsg.style.color = '#1b7a4b';
+    formMsg.textContent = `Děkujeme, ${name}. AI asistent odpovídá v chatu.`;
+    send(message);
+    form.reset();
+  });
+
+  /* AI CHAT ASSISTANT */
+  const log = document.getElementById('chat-log');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const suggestWrap = document.getElementById('chat-suggest');
+  const suggestions = ['Co je GEO?', 'Kolik to stojí?', 'Jak měříte výsledky?', 'Jak dlouho to trvá?'];
+
+  function bubble(role, html) {
+    const wrap = document.createElement('div');
+    wrap.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
+    const b = document.createElement('div');
+    b.className = role === 'user'
+      ? 'max-w-[82%] rounded-2xl rounded-br-md px-4 py-2.5 text-[14.5px] leading-relaxed bg-cream text-ink'
+      : 'max-w-[86%] rounded-2xl rounded-bl-md px-4 py-2.5 text-[14.5px] leading-relaxed text-cream/90 bg-white/8 border border-white/10';
+    b.innerHTML = html;
+    wrap.appendChild(b);
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+    return wrap;
+  }
+  function typingIndicator() {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex justify-start';
+    wrap.innerHTML = '<div class="rounded-2xl rounded-bl-md px-4 py-3 bg-white/8 border border-white/10"><div class="typing-dots flex gap-1"><span class="w-1.5 h-1.5 rounded-full bg-cream/70"></span><span class="w-1.5 h-1.5 rounded-full bg-cream/70"></span><span class="w-1.5 h-1.5 rounded-full bg-cream/70"></span></div></div>';
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+    return wrap;
+  }
+  function fallbackReply(q) {
+    const s = q.toLowerCase();
+    if (/(cen|stoj|kolik|rozpoč|kč|cena)/.test(s))
+      return 'GEO Audit pořídíte za <strong>39 000 Kč jednorázově</strong>, průběžný balíček GEO Růst za <strong>59 000 Kč měsíčně</strong> bez závazku. Doporučujeme začít auditem — uvidíte přesně, kde stojíte.';
+    if (/(co je|geo|generative|znamen)/.test(s))
+      return 'GEO je <strong>Generative Engine Optimization</strong> — optimalizace vaší značky pro to, aby ji doporučovaly AI vyhledávače jako ChatGPT, Perplexity, Gemini nebo Google AI Overviews. Kde SEO řešilo pozice na Googlu, GEO řeší, zda jste v samotné odpovědi AI.';
+    if (/(měř|metr|výsled|report|kpi|data)/.test(s))
+      return 'Měříme váš <strong>podíl hlasu v AI odpovědích</strong> — jak často a v jakém kontextu vás engine zmiňují napříč stovkami relevantních dotazů. Každý měsíc dostanete report a porovnání s konkurencí.';
+    if (/(dlouho|čas|kdy|trvá|rychle)/.test(s))
+      return 'První pohyb ve viditelnosti vidíme typicky <strong>do 14 dní</strong>. Stabilní nárůst zmínek a citací budujeme v horizontu 2–3 měsíců průběžné optimalizace.';
+    if (/(začít|audit|poptáv|kontakt|schůz|spoluprác)/.test(s))
+      return 'Skvělé! Vyplňte formulář vlevo — stačí jméno, e-mail a pár vět o značce. Ozveme se do 24 hodin s prvním pohledem na vaši viditelnost v AI.';
+    if (/(engin|chatgpt|perplexity|gemini|claude|copilot|který)/.test(s))
+      return 'Pokrýváme šest hlavních enginů: <strong>ChatGPT, Perplexity, Gemini, Google AI Overviews, Claude a Copilot</strong>. Strategii vždy přizpůsobíme tomu, kde jsou vaši zákazníci.';
+    return 'Dobrá otázka! GEO pomáhá vaší značce objevit se v odpovědích AI vyhledávačů. Zeptejte se mě na <strong>cenu</strong>, <strong>proces</strong> nebo <strong>měření výsledků</strong> — nebo rovnou vyplňte formulář a ozveme se.';
+  }
+  function webhookReady() {
+    return WEBHOOK_URL && !WEBHOOK_URL.includes('REPLACE_WITH');
+  }
+  async function askWebhook(q) {
+    if (!webhookReady()) return null;
+    const res = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: visitor.conversationId,
+        name: visitor.name,
+        email: visitor.email,
+        message: q,
+      }),
+    });
+    if (!res.ok) throw new Error('Webhook returned ' + res.status);
+    const data = await res.json();
+    return (data.reply || data.answer || data.message || '').toString().trim() || null;
+  }
+  async function respond(q) {
+    const ind = typingIndicator();
+    let answer = null;
+    let answerIsHtml = false;
+    const minDelay = new Promise((r) => setTimeout(r, 700));
+    try {
+      answer = await askWebhook(q);
+      if (answer) {
+        answer = escapeHtml(answer).replace(/\n/g, '<br />');
+        answerIsHtml = true;
+      }
+    } catch (e) {
+      answer = null;
+    }
+    if (!answer && window.claude && typeof window.claude.complete === 'function') {
+      try {
+        const prompt =
+          'Jsi přátelský B2B AI asistent fiktivní marketingové agentury NUMINA, která dělá GEO (Generative Engine Optimization) — optimalizaci značek pro AI vyhledávače (ChatGPT, Perplexity, Gemini, Google AI Overviews, Claude, Copilot). ' +
+          'Ceník: GEO Audit 39 000 Kč jednorázově, GEO Růst 59 000 Kč/měsíc bez závazku. První výsledky do 14 dní. ' +
+          'Odpovídej VÝHRADNĚ česky, sebevědomě, stručně (max 2–3 věty), bez markdownu kromě <strong> tagů. Dotaz: "' + q + '"';
+        const res = await window.claude.complete(prompt);
+        if (res && typeof res === 'string') {
+          answer = res.trim();
+          answerIsHtml = true;
+        }
+      } catch (e) { answer = null; }
+    }
+    await minDelay;
+    if (!answer) {
+      answer = fallbackReply(q);
+      answerIsHtml = true;
+    }
+    ind.remove();
+    bubble('assistant', answerIsHtml ? answer : escapeHtml(answer).replace(/\n/g, '<br />'));
+  }
+  function send(q) { bubble('user', escapeHtml(q)); respond(q); }
+  function renderSuggestions() {
+    suggestWrap.innerHTML = suggestions
+      .map((s) => `<button type="button" class="suggest rounded-full border border-white/15 bg-white/5 hover:bg-white/12 transition-colors px-3 py-1.5 text-[12.5px] text-cream/75">${s}</button>`)
+      .join('');
+    suggestWrap.querySelectorAll('.suggest').forEach((btn) =>
+      btn.addEventListener('click', () => { send(btn.textContent); suggestWrap.style.display = 'none'; })
+    );
+  }
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = chatInput.value.trim();
+    if (!q) return;
+    send(q); chatInput.value = ''; suggestWrap.style.display = 'none';
+  });
+  bubble('assistant', 'Zdravím. Jsem AI asistent agentury <strong>NUMINA</strong>. Zeptejte se mě na cokoli o GEO — jak fungujeme, kolik to stojí, nebo jak měříme viditelnost v AI.');
+  renderSuggestions();
+})();
+</script>
+</body>
+</html>
